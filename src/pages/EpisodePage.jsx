@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getEpisode, getSeries, getSubtitles } from "../services/api";
 import VideoPlayer from "../components/VideoPlayer";
 import { getInitialStream } from "../utils/streamUtils";
+import { findNextEpisodeForSelection } from "../utils/tmdbSeriesUtils";
 
 function Spinner() {
   return (
@@ -34,61 +35,6 @@ function NotFoundCard() {
       </div>
     </div>
   );
-}
-
-function findNextEpisode(seasons = [], currentSeason, currentEpisode) {
-  if (!Array.isArray(seasons) || !seasons.length) return null;
-
-  const seasonEntries = [...seasons]
-    .map((season) => ({
-      seasonNumber: Number(season.seasonNumber),
-      episodes: [...(season.episodes || [])].sort(
-        (a, b) => Number(a.episodeNumber) - Number(b.episodeNumber)
-      ),
-    }))
-    .sort((a, b) => a.seasonNumber - b.seasonNumber);
-
-  const currentSeasonIndex = seasonEntries.findIndex(
-    (season) => season.seasonNumber === Number(currentSeason)
-  );
-
-  if (currentSeasonIndex >= 0) {
-    const currentSeasonEpisodes = seasonEntries[currentSeasonIndex].episodes;
-    const currentEpisodeIndex = currentSeasonEpisodes.findIndex(
-      (episode) => Number(episode.episodeNumber) === Number(currentEpisode)
-    );
-
-    if (currentEpisodeIndex >= 0) {
-      const nextEpisode = currentSeasonEpisodes[currentEpisodeIndex + 1];
-      if (nextEpisode) {
-        return {
-          seasonNumber: seasonEntries[currentSeasonIndex].seasonNumber,
-          episodeNumber: Number(nextEpisode.episodeNumber),
-          name: nextEpisode.name,
-          stillPath: nextEpisode.stillPath || null,
-          runtime: nextEpisode.runtime || null,
-          available: (nextEpisode.streamCount || 0) > 0,
-        };
-      }
-    }
-  }
-
-  for (let index = (currentSeasonIndex >= 0 ? currentSeasonIndex + 1 : 0); index < seasonEntries.length; index += 1) {
-    const season = seasonEntries[index];
-    const firstEpisode = season.episodes[0];
-    if (firstEpisode) {
-      return {
-        seasonNumber: season.seasonNumber,
-        episodeNumber: Number(firstEpisode.episodeNumber),
-        name: firstEpisode.name,
-        stillPath: firstEpisode.stillPath || null,
-        runtime: firstEpisode.runtime || null,
-        available: (firstEpisode.streamCount || 0) > 0,
-      };
-    }
-  }
-
-  return null;
 }
 
 export default function EpisodePage() {
@@ -175,30 +121,43 @@ export default function EpisodePage() {
 
   const currentSeason = Number(season);
   const currentEpisodeNumber = Number(episode);
-  const nextEpisode = findNextEpisode(series?.seasons || [], currentSeason, currentEpisodeNumber);
+  const nextEpisode = findNextEpisodeForSelection(series?.seasons || [], currentSeason, currentEpisodeNumber);
 
   function handleSelectEpisode(targetSeason, targetEpisode) {
-    navigate(`/tv/${tmdbId}/${targetSeason}/${targetEpisode}`);
+    if (!tmdbId) return;
+    navigate(`/tv/${tmdbId}/${targetSeason}/${targetEpisode}`, { replace: false });
   }
 
   function handleNextEpisode() {
     if (nextEpisode) {
-      navigate(`/tv/${tmdbId}/${nextEpisode.seasonNumber}/${nextEpisode.episodeNumber}`);
+      handleSelectEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
     }
   }
 
   if (loading) return <Spinner />;
 
-  if (!ep || !selectedStream) return <NotFoundCard />;
+  const fallbackEpisode = ep || {
+    title: `Season ${season} Episode ${episode}`,
+    season: currentSeason,
+    episode: currentEpisodeNumber,
+    episodeName: "",
+    backdropUrl: null,
+    backdropPath: null,
+    posterUrl: null,
+    posterPath: null,
+    stillPath: null,
+    streams: [],
+    subtitles: [],
+  };
 
   return (
     <VideoPlayer
       tmdbId={tmdbId}
       contentType="tv"
-      title={`${ep.title} - S${ep.season}E${ep.episode} ${ep.episodeName || ""}`}
-      poster={ep.backdropUrl || ep.backdropPath || ep.posterUrl || ep.posterPath || ep.stillPath}
+      title={`${fallbackEpisode.title} - S${fallbackEpisode.season || currentSeason}E${fallbackEpisode.episode || currentEpisodeNumber} ${fallbackEpisode.episodeName || ""}`.trim()}
+      poster={fallbackEpisode.backdropUrl || fallbackEpisode.backdropPath || fallbackEpisode.posterUrl || fallbackEpisode.posterPath || fallbackEpisode.stillPath}
       stream={selectedStream}
-      streams={ep.streams}
+      streams={fallbackEpisode.streams || []}
       subtitles={subtitles}
       onQualityChange={setSelectedStream}
       series={series}

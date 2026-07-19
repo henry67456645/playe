@@ -49,6 +49,7 @@ export default function VideoPlayer({
   const [episodeDrawerOpen, setEpisodeDrawerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  const [isLargeDesktop, setIsLargeDesktop] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1080 : false);
   const [adLibraryReady, setAdLibraryReady] = useState(false);
 
   // Stores playback position across a quality switch so it resumes cleanly
@@ -61,7 +62,7 @@ export default function VideoPlayer({
 
     const runAd = () => {
       if (window.aclib?.runPop) {
-        window.aclib.runPop({ zoneId: "11716406" });
+        window.aclib.runPop({ zoneId: "11754994" });
         return true;
       }
       return false;
@@ -82,7 +83,7 @@ export default function VideoPlayer({
     const attemptInit = () => {
       try {
         if (window.aclib && typeof window.aclib.runPop === "function") {
-          window.aclib.runPop({ zoneId: "11716406" });
+          window.aclib.runPop({ zoneId: "11754994" });
           return;
         }
       } catch (error) {
@@ -196,7 +197,10 @@ export default function VideoPlayer({
   }, [adLibraryReady]);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsLargeDesktop(window.innerWidth >= 1080);
+    };
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -301,6 +305,33 @@ export default function VideoPlayer({
     : [];
 
   const activeLanguageGroup = languageGroups.find((item) => item.language === streamLanguage) || languageGroups[0];
+  const topControlsStyle = {
+    ...styles.topControls,
+    top: isMobile ? 72 : 24,
+    left: isMobile ? 12 : "auto",
+    right: isMobile ? 12 : 24,
+    width: isMobile ? "calc(100% - 24px)" : "auto",
+    maxWidth: isMobile ? "calc(100% - 24px)" : isLargeDesktop ? "680px" : "calc(100% - 48px)",
+    flexWrap: isMobile ? "wrap" : "nowrap",
+    justifyContent: isMobile ? "flex-start" : "flex-end",
+    alignItems: "center",
+    gap: isLargeDesktop ? 12 : 8,
+    padding: 0,
+    minWidth: 0,
+  };
+  const sourceWrapStyle = {
+    ...styles.sourceWrap,
+    flex: isMobile ? "0 0 auto" : "0 0 auto",
+    minWidth: isMobile ? "160px" : 0,
+    maxWidth: isMobile ? "none" : isLargeDesktop ? "340px" : "320px",
+  };
+  const sourceMenuStyle = {
+    ...styles.sourceMenu,
+    left: isMobile ? 0 : "auto",
+    right: 0,
+    width: isMobile ? "calc(100vw - 24px)" : "min(420px, calc(100vw - 48px))",
+    maxWidth: isMobile ? "calc(100vw - 24px)" : "min(420px, calc(100vw - 48px))",
+  };
 
   return (
     <div style={styles.wrap}>
@@ -374,9 +405,9 @@ export default function VideoPlayer({
         )}
       </button>
 
-      <div style={styles.topControls} data-source-menu>
+      <div style={topControlsStyle} data-source-menu>
         {languageGroups.length > 0 && (
-          <div style={styles.sourceWrap}>
+          <div style={sourceWrapStyle}>
             <button
               type="button"
               style={styles.sourceToggle}
@@ -408,7 +439,7 @@ export default function VideoPlayer({
             </button>
 
             {sourceMenuOpen && (
-              <div style={{ ...styles.sourceMenu, ...(isMobile ? styles.sourceMenuMobile : {}) }}>
+              <div id="source-menu" style={sourceMenuStyle} role="menu">
                 {languageGroups.map((item) => {
                   const active = item.language === streamLanguage;
                   return (
@@ -457,7 +488,7 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {series?.seasons?.length ? (
+        {series?.seasons?.length && !(isMobile && sourceMenuOpen) ? (
           <button style={styles.episodeToggle} onClick={() => setEpisodeDrawerOpen(true)}>
             <svg width="14" height="14" viewBox="0 0 14 14" style={{ marginRight: "6px" }}>
               <path
@@ -544,6 +575,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
     boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
     zIndex: 5,
     transition: "opacity 180ms ease",
@@ -551,19 +584,26 @@ const styles = {
   topControls: {
     position: "absolute",
     top: 12,
-    left: 12,
     right: 12,
-    zIndex: 99999,
+    left: "auto",
+    zIndex: 20,
     display: "flex",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     gap: 8,
     flexWrap: "wrap",
+    pointerEvents: "auto",
+    touchAction: "manipulation",
+    width: "auto",
+    maxWidth: "none",
+    minWidth: 0,
   },
   sourceWrap: {
     position: "relative",
-    flex: "1 1 280px",
-    maxWidth: "100%",
+    flex: "0 0 auto",
+    minWidth: "auto",
+    maxWidth: "220px",
+    pointerEvents: "auto",
   },
   sourceToggle: {
     display: "flex",
@@ -578,11 +618,15 @@ const styles = {
     fontSize: "12px",
     fontWeight: 500,
     cursor: "pointer",
-    minWidth: "140px",
-    maxWidth: "100%",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+    minWidth: 0,
+    width: "auto",
+    maxWidth: "220px",
     justifyContent: "space-between",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     lineHeight: 1.2,
+    overflow: "hidden",
   },
   menuLabel: {
     display: "inline-flex",
@@ -607,23 +651,31 @@ const styles = {
   episodeToggle: {
     display: "flex",
     alignItems: "center",
-    padding: "7px 12px",
+    padding: "8px 12px",
     borderRadius: "10px",
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(0,0,0,0.65)",
-    backdropFilter: "blur(8px)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(0,0,0,0.55)",
+    backdropFilter: "blur(10px)",
     color: "#fff",
     fontSize: "12px",
     fontWeight: 500,
     cursor: "pointer",
-    flexShrink: 0,
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+    flex: "0 0 auto",
+    minWidth: "auto",
+    whiteSpace: "nowrap",
+    maxWidth: "140px",
+    justifyContent: "center",
+    marginTop: "0",
+    minHeight: "44px",
   },
   sourceMenu: {
     position: "absolute",
     top: "calc(100% + 8px)",
     left: 0,
     right: 0,
-    maxWidth: "min(360px, calc(100vw - 24px))",
+    maxWidth: "min(420px, calc(100vw - 48px))",
     maxHeight: "min(420px, 70vh)",
     overflowY: "auto",
     background: "rgba(12,12,12,0.97)",
@@ -635,6 +687,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
+    zIndex: 30,
   },
   sourceMenuMobile: {
     width: "calc(100vw - 24px)",
@@ -665,7 +718,10 @@ const styles = {
     fontWeight: 600,
     textAlign: "left",
     cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
     gap: "8px",
+    minHeight: "44px",
   },
   sourceGroupButtonActive: {
     background: "rgba(229,9,20,0.12)",
@@ -702,6 +758,9 @@ const styles = {
     fontSize: "11px",
     fontWeight: 500,
     cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+    minHeight: "36px",
   },
   qualityChipActive: {
     borderColor: "rgba(229,9,20,0.35)",

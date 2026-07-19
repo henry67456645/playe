@@ -14,7 +14,26 @@ export default function SeasonEpisodeDrawer({
 
   if (!open) return null;
 
-  const season = seasons.find((item) => item.seasonNumber === activeSeason) || seasons[0];
+  const normalizedSeasons = Array.isArray(seasons)
+    ? seasons
+        .map((item) => ({
+          ...item,
+          seasonNumber: Number(item.seasonNumber ?? item.number ?? 0),
+          episodes: Array.isArray(item?.episodes)
+            ? item.episodes.map((episodeItem) => ({
+                ...episodeItem,
+                episodeNumber: Number(episodeItem.episodeNumber ?? episodeItem.number ?? episodeItem.episode ?? 0),
+                name: episodeItem.name || episodeItem.title || `Episode ${episodeItem.episodeNumber ?? episodeItem.number ?? episodeItem.episode ?? ""}`,
+                stillPath: episodeItem.stillPath || episodeItem.still_path || null,
+                runtime: episodeItem.runtime || episodeItem.episodeRuntime || null,
+                available: episodeItem.available ?? (Number(episodeItem.streamCount || 0) > 0),
+              }))
+            : [],
+        }))
+        .filter((item) => Number.isFinite(item.seasonNumber) && item.seasonNumber > 0)
+    : [];
+
+  const season = normalizedSeasons.find((item) => item.seasonNumber === activeSeason) || normalizedSeasons[0];
 
   return (
     <>
@@ -28,7 +47,7 @@ export default function SeasonEpisodeDrawer({
         </div>
 
         <div style={styles.seasonTabs}>
-          {seasons.map((item) => (
+          {normalizedSeasons.map((item) => (
             <button
               key={item.seasonNumber}
               onClick={() => setActiveSeason(item.seasonNumber)}
@@ -97,8 +116,9 @@ const styles = {
   scrim: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.5)",
-    zIndex: 70,
+    background: "rgba(0,0,0,0.55)",
+    zIndex: 80,
+    touchAction: "manipulation",
   },
   drawer: {
     position: "fixed",
@@ -107,7 +127,7 @@ const styles = {
     bottom: 0,
     width: "min(420px, 100vw)",
     background: "#141414",
-    zIndex: 80,
+    zIndex: 90,
     display: "flex",
     flexDirection: "column",
     boxShadow: "-20px 0 60px rgba(0,0,0,0.5)",
@@ -126,6 +146,8 @@ const styles = {
     color: "rgba(255,255,255,0.6)",
     fontSize: "18px",
     cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
     padding: "4px 8px",
   },
   seasonTabs: {
@@ -142,7 +164,10 @@ const styles = {
     fontSize: "13px",
     fontWeight: 500,
     cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
     whiteSpace: "nowrap",
+    minHeight: "42px",
   },
   episodeList: {
     flex: 1,
@@ -158,6 +183,10 @@ const styles = {
     border: "none",
     borderRadius: "8px",
     textAlign: "left",
+    cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+    minHeight: "56px",
   },
   epThumbWrap: {
     position: "relative",
