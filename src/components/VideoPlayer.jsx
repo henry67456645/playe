@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 
-import { MediaPlayer, MediaProvider, Track } from "@vidstack/react";
+import { MediaPlayer, MediaProvider, Track, useMediaState } from "@vidstack/react";
 import {
   DefaultVideoLayout,
   defaultLayoutIcons,
@@ -42,15 +42,29 @@ export default function VideoPlayer({
   onSelectEpisode,
   nextEpisode,
   onNextEpisode,
+  onPlayerError,
 }) {
   const playerRef = useRef(null);
+  const errorNotifiedRef = useRef(false);
   const [showBackdrop, setShowBackdrop] = useState(true);
   const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
   const [episodeDrawerOpen, setEpisodeDrawerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  const currentTime = useMediaState("currentTime", playerRef);
+  const duration = useMediaState("duration", playerRef);
+  const showNextEpisodeButton = !!nextEpisode && duration > 0 && currentTime / duration >= 0.92;
   const [isLargeDesktop, setIsLargeDesktop] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1080 : false);
   const [adLibraryReady, setAdLibraryReady] = useState(false);
+
+  const handleNextEpisode = () => {
+    if (!nextEpisode) return;
+    if (onNextEpisode) {
+      onNextEpisode();
+      return;
+    }
+    onSelectEpisode?.(nextEpisode.seasonNumber, nextEpisode.episodeNumber);
+  };
 
   // Stores playback position across a quality switch so it resumes cleanly
   const resumeTime = useRef(0);
@@ -136,6 +150,12 @@ export default function VideoPlayer({
   const streamLanguage = stream?.language || "Unknown";
   const streamLanguageTitle = stream?.languageTitle || stream?.title || streamLanguage;
 
+  useEffect(() => {
+    if (!streamUrl) {
+      notifyPlayerError();
+    }
+  }, [streamUrl]);
+
   function changeQuality(item, languageGroup) {
     const targetLanguage = languageGroup?.language || streamLanguage;
     const targetTitle = languageGroup?.title || languageGroup?.language || streamLanguageTitle;
@@ -206,6 +226,21 @@ export default function VideoPlayer({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const notifyPlayerError = () => {
+    if (typeof window === "undefined" || errorNotifiedRef.current) return;
+    errorNotifiedRef.current = true;
+
+    window.parent.postMessage(
+      {
+        type: "PLAYER_ERROR",
+        provider: "moonflix",
+        tmdbId: tmdbId || null,
+      },
+      "*"
+    );
+    onPlayerError?.();
+  };
+
   useEffect(() => {
     adTriggeredRef.current = false;
 
@@ -255,16 +290,23 @@ export default function VideoPlayer({
       setIsPlaying(false);
     }
 
+    function handleVideoError() {
+      console.error('Video playback error detected');
+      notifyPlayerError();
+    }
+
     player.addEventListener("loadedmetadata", handleMediaReady);
     player.addEventListener("play", handlePlaybackStarted);
     player.addEventListener("pause", handlePlaybackStopped);
     player.addEventListener("ended", handlePlaybackStopped);
+    player.addEventListener("error", handleVideoError);
 
     return () => {
       player.removeEventListener("loadedmetadata", handleMediaReady);
       player.removeEventListener("play", handlePlaybackStarted);
       player.removeEventListener("pause", handlePlaybackStopped);
       player.removeEventListener("ended", handlePlaybackStopped);
+      player.removeEventListener("error", handleVideoError);
     };
   }, [stream]);
 
@@ -501,6 +543,21 @@ export default function VideoPlayer({
             Episodes
           </button>
         ) : null}
+
+        {nextEpisode && showNextEpisodeButton ? (
+          <button
+            style={styles.nextEpisodeBtn}
+            onClick={() => {
+              setEpisodeDrawerOpen(false);
+              handleNextEpisode();
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: "6px" }}>
+              <path d="M8 5l8 7-8 7V5z" fill="currentColor" />
+            </svg>
+            Next Episode
+          </button>
+        ) : null}
       </div>
 
       {series?.seasons?.length ? (
@@ -521,6 +578,7 @@ export default function VideoPlayer({
         <NextEpisodeOverlay
           playerRef={playerRef}
           nextEpisode={nextEpisode}
+          triggerProgress={0.92}
           onNextEpisode={() => {
             setEpisodeDrawerOpen(false);
             onNextEpisode?.();
@@ -666,6 +724,28 @@ const styles = {
     minWidth: "auto",
     whiteSpace: "nowrap",
     maxWidth: "140px",
+    justifyContent: "center",
+    marginTop: "0",
+    minHeight: "44px",
+  },
+  nextEpisodeBtn: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 12px",
+    borderRadius: "10px",
+    border: "1px solid rgba(229,9,20,0.24)",
+    background: "rgba(229,9,20,0.12)",
+    backdropFilter: "blur(10px)",
+    color: "#fff",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    touchAction: "manipulation",
+    WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+    flex: "0 0 auto",
+    minWidth: "auto",
+    whiteSpace: "nowrap",
+    maxWidth: "180px",
     justifyContent: "center",
     marginTop: "0",
     minHeight: "44px",

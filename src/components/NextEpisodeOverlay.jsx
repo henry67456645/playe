@@ -7,6 +7,7 @@ export default function NextEpisodeOverlay({
   nextEpisode,
   onNextEpisode,
   triggerSecondsBeforeEnd = 30,
+  triggerProgress = 0.92,
   autoPlaySeconds = 8,
 }) {
   const [visible, setVisible] = useState(false);
@@ -24,15 +25,16 @@ export default function NextEpisodeOverlay({
     if (!player || !nextEpisode) return;
 
     const handleTimeUpdate = () => {
-      const remaining = player.duration - player.currentTime;
-      if (!dismissed && remaining > 0 && remaining <= triggerSecondsBeforeEnd) {
+      if (!player.duration) return;
+      const progress = player.currentTime / player.duration;
+      if (!dismissed && progress >= triggerProgress) {
         setVisible(true);
       }
     };
 
     player.addEventListener("timeupdate", handleTimeUpdate);
     return () => player.removeEventListener("timeupdate", handleTimeUpdate);
-  }, [playerRef, nextEpisode, dismissed, triggerSecondsBeforeEnd]);
+  }, [playerRef, nextEpisode, dismissed, triggerProgress]);
 
   useEffect(() => {
     if (!visible) return;

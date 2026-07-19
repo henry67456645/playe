@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { getMovie, getEpisode, getSubtitles } from "../services/api";
@@ -7,10 +7,25 @@ import { getInitialStream } from "../utils/streamUtils";
 
 export default function EmbedPage() {
   const { type, tmdbId, season, episode } = useParams();
+  const errorNotifiedRef = useRef(false);
   const [item, setItem] = useState(null);
   const [selectedStream, setSelectedStream] = useState(null);
   const [subtitles, setSubtitles] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const notifyPlayerError = () => {
+    if (typeof window === "undefined" || errorNotifiedRef.current) return;
+
+    errorNotifiedRef.current = true;
+    window.parent.postMessage(
+      {
+        type: "PLAYER_ERROR",
+        provider: "moonflix",
+        tmdbId: tmdbId || null,
+      },
+      "*"
+    );
+  };
 
   useEffect(() => {
     async function loadContent() {
@@ -52,6 +67,7 @@ export default function EmbedPage() {
         }
       } catch (err) {
         console.error(err);
+        notifyPlayerError();
       } finally {
         setLoading(false);
       }
@@ -59,6 +75,13 @@ export default function EmbedPage() {
 
     loadContent();
   }, [type, tmdbId, season, episode]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!item || !selectedStream) {
+      notifyPlayerError();
+    }
+  }, [loading, item, selectedStream]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +122,7 @@ export default function EmbedPage() {
   return (
     <div className="embed-page">
       <VideoPlayer
+        tmdbId={tmdbId}
         title={title}
         poster={item.backdropUrl || item.backdropPath || item.posterUrl || item.posterPath || item.stillPath}
         stream={selectedStream}
