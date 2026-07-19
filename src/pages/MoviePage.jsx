@@ -13,7 +13,12 @@ function Spinner() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-      <div style={styles.spinner} />
+      <img
+        src="https://player.moonflix.site/favicon.png"
+        alt="Loading"
+        style={styles.spinnerImage}
+      />
+      <p style={styles.spinnerBrand}>Moonflix Player</p>
       <p style={styles.spinnerText}>Loading movie…</p>
     </div>
   );
@@ -26,7 +31,7 @@ function NotFoundCard() {
         <div style={styles.icon}>🎬</div>
         <h2 style={styles.cardTitle}>Movie not found</h2>
         <p style={styles.cardText}>
-          We couldn't find this Movie. , it may be not available, or the link might be broken.
+          Movie not yet released or it may be not available, or the link might be broken.
         </p>
         <button style={styles.cardButton} onClick={() => window.history.back()}>
           Go back
@@ -135,20 +140,26 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "60vh",
-    gap: "16px",
+    gap: "12px", // compact spacing
   },
-  spinner: {
+  spinnerImage: {
     width: "48px",
     height: "48px",
-    border: "4px solid rgba(255,255,255,0.15)",
-    borderTopColor: "#e50914",
-    borderRadius: "50%",
     animation: "movie-spin 0.8s linear infinite",
+    borderRadius: "8px", // optional, adjust to match logo shape
+  },
+  spinnerBrand: {
+    color: "#fff",
+    fontSize: "18px",
+    fontWeight: 600,
+    margin: 0,
+    letterSpacing: "0.02em",
   },
   spinnerText: {
     color: "rgba(255,255,255,0.6)",
     fontSize: "14px",
     letterSpacing: "0.02em",
+    margin: 0,
   },
   notFoundWrap: {
     display: "flex",
